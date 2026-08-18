@@ -27,6 +27,22 @@
     el.setAttribute("role", "listitem");
     if (duplicate) el.setAttribute("aria-hidden", "true");
 
+    // A book with a link becomes one clickable card; without one it is a plain
+    // div, so nothing focusable is added for a link that does not exist.
+    var frame;
+    if (book.link) {
+      frame = document.createElement("a");
+      frame.className = "book-frame";
+      frame.href = book.link;
+      frame.target = "_blank";
+      frame.rel = "noopener noreferrer";
+      frame.title = book.title + (book.author ? " — " + book.author : "");
+      if (duplicate) frame.tabIndex = -1;  // don't tab through the copies
+    } else {
+      frame = document.createElement("div");
+      frame.className = "book-frame";
+    }
+
     var cover = document.createElement("div");
     cover.className = "book-cover";
     cover.style.setProperty("--hue", hueFor(book.title || "?"));
@@ -46,19 +62,25 @@
       img.loading = "lazy";
       img.decoding = "async";
       // No file there yet? Drop the image and let the typographic cover show.
-      img.addEventListener("error", function () { img.remove(); });
+      img.addEventListener("error", function () {
+        img.remove();
+        cover.classList.remove("has-image");
+      });
+      cover.classList.add("has-image");
       cover.appendChild(img);
     }
 
     var caption = document.createElement("figcaption");
     caption.className = "book-meta";
-    caption.innerHTML = '<span class="bm-title"></span><span class="bm-sub"></span>';
+    caption.innerHTML =
+      '<span class="bm-title"></span><span class="bm-author"></span><span class="bm-period"></span>';
     caption.querySelector(".bm-title").textContent = book.title || "";
-    caption.querySelector(".bm-sub").textContent =
-      [book.author, book.year].filter(Boolean).join(" · ");
+    caption.querySelector(".bm-author").textContent = book.author || "";
+    caption.querySelector(".bm-period").textContent = book.period || "";
 
-    el.appendChild(cover);
-    el.appendChild(caption);
+    frame.appendChild(cover);
+    frame.appendChild(caption);
+    el.appendChild(frame);
     return el;
   }
 
@@ -79,7 +101,8 @@
     // Skipped where hover works, so it cannot fight the CSS hover rule.
     var shelf = document.getElementById("shelf");
     if (shelf && !reduceMotion && !window.matchMedia("(hover: hover)").matches) {
-      shelf.addEventListener("click", function () {
+      shelf.addEventListener("click", function (e) {
+        if (e.target.closest("a")) return;  // tapping a cover opens the book
         var paused = track.style.animationPlayState === "paused";
         track.style.animationPlayState = paused ? "running" : "paused";
       });

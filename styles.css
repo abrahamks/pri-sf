@@ -193,7 +193,14 @@ main { max-width: var(--page); margin: 0 auto; padding: 0 1.5rem; }
 .book {
   flex: 0 0 auto;
   width: var(--cover-w);
+  margin: 0;
   text-align: center;
+}
+
+.book-frame {
+  display: block;
+  color: inherit;
+  text-decoration: none;
 }
 
 .book-cover {
@@ -225,6 +232,10 @@ main { max-width: var(--page); margin: 0 auto; padding: 0 1.5rem; }
 }
 
 .book-fallback .fb-title {
+  display: -webkit-box;
+  -webkit-line-clamp: 5;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
   font-family: var(--display);
   font-size: 1.12rem;
   font-weight: 600;
@@ -246,13 +257,28 @@ main { max-width: var(--page); margin: 0 auto; padding: 0 1.5rem; }
   color: rgba(255,255,255,.72);
 }
 
+/* Every cover is locked to the same box. `contain` fits the whole jacket
+   inside it rather than cropping — real covers run from about 0.62 to 0.73
+   wide-to-tall, so a few of them sit on a thin mat instead of losing their
+   edges. The mat is opaque, which also hides the fallback text underneath. */
 .book-cover img {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
   display: block;
+  /* Same gradient as the cover box, so the thin mat reads as part of the
+     frame rather than a black bar. Opaque, so it hides the fallback text. */
+  background: linear-gradient(155deg,
+              hsl(var(--hue) 32% 30%),
+              hsl(calc(var(--hue) + 26) 34% 18%));
+}
+
+/* A drawn spine sells the typographic fallback covers; over a real jacket it
+   just looks like a smudge, so those get the gloss alone. */
+.book-cover.has-image::after {
+  background: linear-gradient(200deg, rgba(255,255,255,.09), transparent 38%);
 }
 
 /* spine + gloss */
@@ -266,22 +292,47 @@ main { max-width: var(--page); margin: 0 auto; padding: 0 1.5rem; }
     linear-gradient(200deg, rgba(255,255,255,.14), transparent 42%);
 }
 
-.book-meta { margin-top: .8rem; }
+/* Fixed height so titles of wildly different lengths still line the shelf up.
+   Long titles are clamped; the full text is on the link's tooltip. */
+.book-meta {
+  height: 5.4rem;
+  margin-top: .85rem;
+  overflow: hidden;
+}
 
 .book-meta .bm-title {
-  display: block;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
   font-family: var(--display);
-  font-size: 1rem;
+  font-size: 1.02rem;
   font-weight: 600;
-  line-height: 1.25;
+  line-height: 1.24;
   color: var(--ink);
 }
 
-.book-meta .bm-sub {
+.book-frame:hover .bm-title { color: var(--gold); }
+
+.book-meta .bm-author {
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin-top: .2rem;
+  font-size: .78rem;
+  line-height: 1.35;
+  color: var(--ink-soft);
+}
+
+.book-meta .bm-period {
   display: block;
-  margin-top: .15rem;
-  font-size: .76rem;
+  margin-top: .1rem;
+  font-size: .68rem;
+  letter-spacing: .08em;
+  text-transform: uppercase;
   color: var(--ink-faint);
+  white-space: nowrap;
 }
 
 .shelf-hint {

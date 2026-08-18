@@ -14,19 +14,26 @@ favicon.svg   the little icon in the browser tab
 
 ## Updating the bookshelf
 
-Open `books.js` and edit the list. Each book is one line:
+Open `books.js` and add an entry at the top of the list (newest first):
 
 ```js
-{ title: "Knowing God", author: "J. I. Packer", year: "2019", cover: "covers/knowing-god.jpg" },
+{
+  title:  "Knowing God",
+  author: "J. I. Packer",
+  period: "March - May 2019",
+  link:   "https://www.ivpress.com/knowing-god",   // makes the cover clickable
+  cover:  "covers/knowing-god.jpg",
+},
 ```
 
-Only `title` is required. Drop the cover image into `covers/` and point `cover`
-at it; if the file isn't there, the page draws a typographic cover from the
-title and author instead, so the shelf never looks broken. The animation speed
-adjusts automatically as you add books.
+Only `title` is required. Save the cover image into `covers/` and point `cover`
+at it — see `covers/README.md` for the one-line command that resizes it. If the
+file isn't there, the page draws a typographic cover from the title and author
+instead, so the shelf never looks broken. Scroll speed adjusts on its own as
+the list grows.
 
-**The 12 entries currently in `books.js` are placeholders** — replace them with
-the real books.
+Covers are stored in this repo rather than hotlinked from publishers' sites, so
+the shelf keeps working when those sites reorganize.
 
 ## Changing the details
 
