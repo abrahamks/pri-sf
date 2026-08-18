@@ -10,33 +10,114 @@
 
   /* --- the shared marquee ------------------------------------------------ */
 
-  /* Fills one row: renders every item, then a second identical copy so the
-     CSS animation can shift by exactly one copy's width and loop seamlessly.
-     `seconds` is per item, so a longer list scrolls at the same speed rather
-     than the same duration. */
-  function buildRow(shelfId, trackId, items, render, seconds) {
+  /* Each row is a real scroll container holding three identical copies of the
+     list, parked on the middle one. A rAF loop nudges scrollLeft along; when
+     it drifts a whole copy in either direction we jump it back by one copy,
+     which is invisible because every copy is identical. Because the motion is
+     scroll position rather than a transform, touch drag, momentum, trackpad
+     swipe, and shift+wheel all work for free — the loop just gets out of the
+     way while the reader is doing it themselves. */
+
+  var COPIES = 3;
+  var IDLE_MS = 1200;   // how long after a swipe before the drift resumes
+
+  function buildRow(shelfId, trackId, items, render, pxPerSecond) {
     var track = document.getElementById(trackId);
     var shelf = document.getElementById(shelfId);
     if (!track || !shelf || !items.length) return;
 
+    var copies = reduceMotion ? 1 : COPIES;
     var frag = document.createDocumentFragment();
-    items.forEach(function (item) { frag.appendChild(render(item, false)); });
-
-    if (!reduceMotion) {
-      items.forEach(function (item) { frag.appendChild(render(item, true)); });
-      track.style.setProperty("--duration", (items.length * seconds) + "s");
+    for (var c = 0; c < copies; c++) {
+      items.forEach(function (item) { frag.appendChild(render(item, c > 0)); });
     }
     track.appendChild(frag);
+    if (reduceMotion) return;   // still swipeable, just never moves on its own
 
-    // Touch devices have no hover: tap the row to pause or resume. Skipped
-    // where hover works, so it cannot fight the CSS hover rule.
-    if (!reduceMotion && !canHover) {
-      shelf.addEventListener("click", function (e) {
-        if (e.target.closest("a")) return;  // tapping a card opens it instead
-        var paused = track.style.animationPlayState === "paused";
-        track.style.animationPlayState = paused ? "running" : "paused";
-      });
+    var cards = track.children;
+    var copyW = 0;
+    var pos = 0;          // our own float position; scrollLeft rounds
+    var applied = 0;      // what we last wrote, to spot the reader moving it
+    var userUntil = 0;    // drift stays off until this timestamp
+    var visible = true;
+
+    // Exact width of one copy, gap included, straight from the layout. Only
+    // jumps back to the middle copy when the layout actually changed under us;
+    // otherwise it would yank the row out from under someone mid-read.
+    function measure(recentre) {
+      var w = cards[items.length].offsetLeft - cards[0].offsetLeft;
+      if (!w) return;
+      copyW = w;
+      if (recentre || pos < 0 || pos > copyW * 2) {
+        pos = copyW;
+        shelf.scrollLeft = pos;
+        applied = shelf.scrollLeft;
+      }
     }
+
+    // Keep the reader near the middle copy so there is always runway to swipe
+    // either way. Never do this mid-flick — it would kill the momentum.
+    function wrap() {
+      if (!copyW) return;
+      if (pos >= copyW * 2) pos -= copyW;
+      else if (pos <= 0) pos += copyW;
+      else return;
+      shelf.scrollLeft = pos;
+      applied = shelf.scrollLeft;
+    }
+
+    var last = 0;
+    function tick(now) {
+      requestAnimationFrame(tick);
+      var dt = last ? Math.min((now - last) / 1000, 0.1) : 0;
+      last = now;
+      if (!copyW) return;
+
+      // The reader scrolled, so take their position as the truth.
+      if (Math.abs(shelf.scrollLeft - applied) > 1) pos = shelf.scrollLeft;
+
+      var idle = now > userUntil;
+      if (idle && visible && !document.hidden && !hovered && !focused) {
+        pos += pxPerSecond * dt;
+        shelf.scrollLeft = pos;
+        applied = shelf.scrollLeft;
+      }
+      if (idle) wrap();   // only once the flick has settled
+    }
+
+    var hovered = false;
+    var focused = false;
+
+    if (canHover) {
+      shelf.addEventListener("pointerenter", function (e) {
+        if (e.pointerType === "mouse") hovered = true;
+      });
+      shelf.addEventListener("pointerleave", function () { hovered = false; });
+    }
+    shelf.addEventListener("focusin", function () { focused = true; });
+    shelf.addEventListener("focusout", function () { focused = false; });
+
+    // Any hands-on scrolling — drag, flick, wheel — holds the drift off.
+    function hold() { userUntil = performance.now() + IDLE_MS; }
+    shelf.addEventListener("pointerdown", hold);
+    shelf.addEventListener("touchstart", hold, { passive: true });
+    shelf.addEventListener("wheel", hold, { passive: true });
+    shelf.addEventListener("scroll", function () {
+      if (Math.abs(shelf.scrollLeft - applied) > 1) hold();
+    }, { passive: true });
+
+    if (window.IntersectionObserver) {
+      new IntersectionObserver(function (entries) {
+        visible = entries[0].isIntersecting;
+      }).observe(shelf);
+    }
+
+    measure(true);
+    // Card widths are fixed in CSS, so images loading can't shift the row —
+    // but fonts and a breakpoint change can, so re-measure on both.
+    window.addEventListener("load", function () { measure(false); });
+    window.addEventListener("resize", function () { measure(true); });
+    requestAnimationFrame(tick);
   }
 
   // One list item per card, with the whole card as a single link.
@@ -163,9 +244,9 @@
   var books = (typeof BOOKS !== "undefined" && Array.isArray(BOOKS)) ? BOOKS : [];
   var videos = (typeof VIDEOS !== "undefined" && Array.isArray(VIDEOS)) ? VIDEOS : [];
 
-  buildRow("shelf", "shelf-track", books, renderBook, 5.5);
-  // Wider cards, so a little longer per item to keep both rows moving alike.
-  buildRow("talks", "talks-track", videos, renderTalk, 9);
+  // px per second; the talks row runs backwards so the two rows counter-drift
+  buildRow("shelf", "shelf-track", books, renderBook, 34);
+  buildRow("talks", "talks-track", videos, renderTalk, -34);
 
   /* --- contact ----------------------------------------------------------- */
 

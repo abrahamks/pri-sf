@@ -163,33 +163,31 @@ main { max-width: var(--page); margin: 0 auto; padding: 0 1.5rem; }
 
 .shelf-section { padding-bottom: 1rem; }
 
+/* A real horizontal scroll container, not a transform animation — that's what
+   makes touch drag and momentum work. script.js advances scrollLeft frame by
+   frame and wraps it around a duplicated track to get the endless loop. */
 .shelf {
   position: relative;
   width: 100vw;                    /* full-bleed out of the centered column */
   margin-left: calc(50% - 50vw);
   padding: 1.25rem 0 2rem;
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;  /* don't trigger the browser's back-swipe */
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;           /* the row is self-evidently draggable */
+  -ms-overflow-style: none;
   -webkit-mask-image: linear-gradient(90deg, transparent, #000 7%, #000 93%, transparent);
           mask-image: linear-gradient(90deg, transparent, #000 7%, #000 93%, transparent);
 }
+
+.shelf::-webkit-scrollbar { display: none; }
 
 .shelf-track {
   display: flex;
   gap: var(--gap);
   width: max-content;
   padding: 0 var(--gap);
-  animation: shelf-scroll var(--duration, 60s) linear infinite;
-}
-
-.shelf:hover .shelf-track,
-.shelf:focus-within .shelf-track { animation-play-state: paused; }
-
-/* The track holds two identical copies of the list, so its width is
-   2 * copy + one gap. Shifting by exactly (copy + gap) — that is,
-   half the track plus half a gap — puts copy #2 where copy #1 began. */
-@keyframes shelf-scroll {
-  from { transform: translate3d(0, 0, 0); }
-  to   { transform: translate3d(calc(-50% - var(--gap) / 2), 0, 0); }
 }
 
 .book {
@@ -348,9 +346,8 @@ main { max-width: var(--page); margin: 0 auto; padding: 0 1.5rem; }
 
 /* --- Selected teachings --------------------------------------------------- */
 
-/* The two rows drift in opposite directions so they read as two shelves
-   rather than one long conveyor belt. */
-.shelf--reverse .shelf-track { animation-direction: reverse; }
+/* The two rows drift in opposite directions (see script.js) so they read as
+   two shelves rather than one long conveyor belt. */
 
 .talk {
   flex: 0 0 auto;
@@ -499,15 +496,10 @@ footer p { margin: 0 0 .35rem; }
 /* --- Motion & small screens ---------------------------------------------- */
 
 @media (prefers-reduced-motion: reduce) {
-  .shelf {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    scroll-snap-type: x mandatory;
-  }
-  .shelf-track { animation: none; }
+  /* The rows stay swipeable; script.js skips the automatic drift. */
+  .shelf { scroll-snap-type: x proximity; }
   .book, .talk { scroll-snap-align: center; }
-  .book-cover { transition: none; }
-  .shelf-hint { visibility: hidden; }
+  .book-cover, .talk-frame { transition: none; }
 }
 
 @media (max-width: 560px) {
