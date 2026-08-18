@@ -293,6 +293,32 @@ main { max-width: var(--page); margin: 0 auto; padding: 0 1.5rem; }
   color: var(--ink-faint);
 }
 
+/* --- About --------------------------------------------------------------- */
+
+.about-body {
+  max-width: 62ch;
+  margin: 0 auto;
+}
+
+.about-body p {
+  margin: 0 0 1.15rem;
+  color: var(--ink-soft);
+  font-size: 1.03rem;
+  line-height: 1.78;
+}
+
+.about-body p:last-child { margin-bottom: 0; }
+
+/* Lead paragraph, set slightly larger and in the display face. */
+.about-body p:first-child {
+  font-family: var(--display);
+  font-size: 1.34rem;
+  line-height: 1.55;
+  color: var(--ink);
+}
+
+.about-body em { color: var(--ink); }
+
 /* --- Footer -------------------------------------------------------------- */
 
 footer {
