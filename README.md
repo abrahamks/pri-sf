@@ -4,11 +4,13 @@ The fellowship's landing page. Plain HTML, CSS, and JavaScript — no build step
 no dependencies, nothing to install. Open `index.html` in a browser and it runs.
 
 ```
-index.html    the page itself (title, schedule, address, contact)
+index.html    the page itself (title, schedule, address, contact, about)
 books.js      THE BOOK LIST — the file you'll edit most
+videos.js     the Selected Teachings row
 styles.css    colors, type, layout (all knobs are at the top)
-script.js     builds the scrolling shelf, assembles the email address
-covers/       cover images go here (see covers/README.md)
+script.js     builds both scrolling rows, assembles the email address
+covers/       book cover images (see covers/README.md)
+thumbs/       video thumbnails
 favicon.svg   the little icon in the browser tab
 ```
 
@@ -34,6 +36,33 @@ the list grows.
 
 Covers are stored in this repo rather than hotlinked from publishers' sites, so
 the shelf keeps working when those sites reorganize.
+
+## Updating Selected Teachings
+
+Open `videos.js`. Each talk needs at minimum the YouTube video id — the part
+after `watch?v=` in the URL:
+
+```js
+{
+  id:       "qbWpVCCGKxs",
+  title:    "The Call to be in but not of the World",
+  speaker:  "Pdt. Heru Lin",
+  date:     "May 30, 2026",
+  duration: "1:00:27",
+  thumb:    "thumbs/06-the-call-to-be-in-but-not-of-the-world.jpg",
+},
+```
+
+Thumbnails are saved in `thumbs/` rather than hotlinked from YouTube. To grab
+one for a new video:
+
+```sh
+curl -sL -o /tmp/t.jpg https://i.ytimg.com/vi/VIDEO_ID/maxresdefault.jpg
+sips -s format jpeg -s formatOptions 80 -Z 632 /tmp/t.jpg --out thumbs/my-talk.jpg
+```
+
+Leave `thumb` as `""` and the card still works — it just shows a plain panel
+where the image would be.
 
 ## Changing the details
 

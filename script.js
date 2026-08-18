@@ -1,58 +1,97 @@
-/* Builds the scrolling bookshelf from BOOKS (see books.js) and assembles the
-   contact address at runtime so it is not sitting in the HTML for scrapers. */
+/* Builds the two scrolling rows — books (books.js) and talks (videos.js) —
+   and assembles the contact address at runtime so it is not sitting in the
+   HTML for scrapers. */
 
 (function () {
   "use strict";
 
   var reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var canHover = window.matchMedia("(hover: hover)").matches;
 
-  /* --- bookshelf --------------------------------------------------------- */
+  /* --- the shared marquee ------------------------------------------------ */
 
-  var track = document.getElementById("shelf-track");
-  var books = (typeof BOOKS !== "undefined" && Array.isArray(BOOKS)) ? BOOKS : [];
+  /* Fills one row: renders every item, then a second identical copy so the
+     CSS animation can shift by exactly one copy's width and loop seamlessly.
+     `seconds` is per item, so a longer list scrolls at the same speed rather
+     than the same duration. */
+  function buildRow(shelfId, trackId, items, render, seconds) {
+    var track = document.getElementById(trackId);
+    var shelf = document.getElementById(shelfId);
+    if (!track || !shelf || !items.length) return;
+
+    var frag = document.createDocumentFragment();
+    items.forEach(function (item) { frag.appendChild(render(item, false)); });
+
+    if (!reduceMotion) {
+      items.forEach(function (item) { frag.appendChild(render(item, true)); });
+      track.style.setProperty("--duration", (items.length * seconds) + "s");
+    }
+    track.appendChild(frag);
+
+    // Touch devices have no hover: tap the row to pause or resume. Skipped
+    // where hover works, so it cannot fight the CSS hover rule.
+    if (!reduceMotion && !canHover) {
+      shelf.addEventListener("click", function (e) {
+        if (e.target.closest("a")) return;  // tapping a card opens it instead
+        var paused = track.style.animationPlayState === "paused";
+        track.style.animationPlayState = paused ? "running" : "paused";
+      });
+    }
+  }
+
+  // One list item per card, with the whole card as a single link.
+  function card(className, link, label, duplicate) {
+    var el = document.createElement("div");
+    el.className = className;
+    el.setAttribute("role", "listitem");
+    if (duplicate) el.setAttribute("aria-hidden", "true");
+
+    var frame;
+    if (link) {
+      frame = document.createElement("a");
+      frame.href = link;
+      frame.target = "_blank";
+      frame.rel = "noopener noreferrer";
+      frame.title = label;
+      if (duplicate) frame.tabIndex = -1;  // don't tab through the copies
+    } else {
+      frame = document.createElement("div");
+    }
+    frame.className = className + "-frame";
+    el.appendChild(frame);
+    return { el: el, frame: frame };
+  }
+
+  function fill(parent, html, values) {
+    parent.innerHTML = html;
+    Object.keys(values).forEach(function (sel) {
+      parent.querySelector(sel).textContent = values[sel] || "";
+    });
+  }
+
+  /* --- books ------------------------------------------------------------- */
 
   // Stable per-title hue so a book keeps the same fallback color every visit.
   function hueFor(text) {
     var h = 0;
-    for (var i = 0; i < text.length; i++) {
-      h = (h * 31 + text.charCodeAt(i)) % 360;
-    }
+    for (var i = 0; i < text.length; i++) h = (h * 31 + text.charCodeAt(i)) % 360;
     // Skip the muddy yellow-green band; keep covers in blues/greens/reds.
     return (h % 300 + 190) % 360;
   }
 
-  function makeBook(book, duplicate) {
-    var el = document.createElement("figure");
-    el.className = "book";
-    el.setAttribute("role", "listitem");
-    if (duplicate) el.setAttribute("aria-hidden", "true");
-
-    // A book with a link becomes one clickable card; without one it is a plain
-    // div, so nothing focusable is added for a link that does not exist.
-    var frame;
-    if (book.link) {
-      frame = document.createElement("a");
-      frame.className = "book-frame";
-      frame.href = book.link;
-      frame.target = "_blank";
-      frame.rel = "noopener noreferrer";
-      frame.title = book.title + (book.author ? " — " + book.author : "");
-      if (duplicate) frame.tabIndex = -1;  // don't tab through the copies
-    } else {
-      frame = document.createElement("div");
-      frame.className = "book-frame";
-    }
+  function renderBook(book, duplicate) {
+    var c = card("book", book.link,
+      book.title + (book.author ? " — " + book.author : ""), duplicate);
 
     var cover = document.createElement("div");
     cover.className = "book-cover";
-    cover.style.setProperty("--hue", hueFor(book.title || "?"));
+    cover.style.setProperty("--hue", String(hueFor(book.title || "?")));
 
     var fallback = document.createElement("div");
     fallback.className = "book-fallback";
-    fallback.innerHTML =
-      '<div class="fb-title"></div><div class="fb-rule"></div><div class="fb-author"></div>';
-    fallback.querySelector(".fb-title").textContent = book.title || "";
-    fallback.querySelector(".fb-author").textContent = book.author || "";
+    fill(fallback,
+      '<div class="fb-title"></div><div class="fb-rule"></div><div class="fb-author"></div>',
+      { ".fb-title": book.title, ".fb-author": book.author });
     cover.appendChild(fallback);
 
     if (book.cover) {
@@ -70,44 +109,63 @@
       cover.appendChild(img);
     }
 
-    var caption = document.createElement("figcaption");
+    var caption = document.createElement("div");
     caption.className = "book-meta";
-    caption.innerHTML =
-      '<span class="bm-title"></span><span class="bm-author"></span><span class="bm-period"></span>';
-    caption.querySelector(".bm-title").textContent = book.title || "";
-    caption.querySelector(".bm-author").textContent = book.author || "";
-    caption.querySelector(".bm-period").textContent = book.period || "";
+    fill(caption,
+      '<span class="bm-title"></span><span class="bm-author"></span><span class="bm-period"></span>',
+      { ".bm-title": book.title, ".bm-author": book.author, ".bm-period": book.period });
 
-    frame.appendChild(cover);
-    frame.appendChild(caption);
-    el.appendChild(frame);
-    return el;
+    c.frame.appendChild(cover);
+    c.frame.appendChild(caption);
+    return c.el;
   }
 
-  if (track && books.length) {
-    var frag = document.createDocumentFragment();
-    books.forEach(function (b) { frag.appendChild(makeBook(b, false)); });
+  /* --- talks ------------------------------------------------------------- */
 
-    if (!reduceMotion) {
-      // Second copy makes the loop seamless: the animation shifts by exactly
-      // one copy's width, so the duplicate lands where the original started.
-      books.forEach(function (b) { frag.appendChild(makeBook(b, true)); });
-      track.style.setProperty("--duration", (books.length * 5.5) + "s");
+  function renderTalk(video, duplicate) {
+    var link = video.id ? "https://www.youtube.com/watch?v=" + video.id : "";
+    var c = card("talk", link,
+      video.title + (video.speaker ? " — " + video.speaker : ""), duplicate);
+
+    var thumb = document.createElement("div");
+    thumb.className = "talk-thumb";
+
+    if (video.thumb) {
+      var img = document.createElement("img");
+      img.src = video.thumb;
+      img.alt = "";           // decorative: the title is in the card body
+      img.loading = "lazy";
+      img.decoding = "async";
+      img.addEventListener("error", function () { img.remove(); });
+      thumb.appendChild(img);
     }
 
-    track.appendChild(frag);
-
-    // Touch devices have no hover: tap the shelf to pause or resume.
-    // Skipped where hover works, so it cannot fight the CSS hover rule.
-    var shelf = document.getElementById("shelf");
-    if (shelf && !reduceMotion && !window.matchMedia("(hover: hover)").matches) {
-      shelf.addEventListener("click", function (e) {
-        if (e.target.closest("a")) return;  // tapping a cover opens the book
-        var paused = track.style.animationPlayState === "paused";
-        track.style.animationPlayState = paused ? "running" : "paused";
-      });
+    if (video.duration) {
+      var dur = document.createElement("span");
+      dur.className = "talk-duration";
+      dur.textContent = video.duration;
+      thumb.appendChild(dur);
     }
+
+    var body = document.createElement("div");
+    body.className = "talk-body";
+    fill(body,
+      '<span class="talk-title"></span><span class="talk-speaker"></span><span class="talk-date"></span>',
+      { ".talk-title": video.title, ".talk-speaker": video.speaker, ".talk-date": video.date });
+
+    c.frame.appendChild(thumb);
+    c.frame.appendChild(body);
+    return c.el;
   }
+
+  /* --- go ---------------------------------------------------------------- */
+
+  var books = (typeof BOOKS !== "undefined" && Array.isArray(BOOKS)) ? BOOKS : [];
+  var videos = (typeof VIDEOS !== "undefined" && Array.isArray(VIDEOS)) ? VIDEOS : [];
+
+  buildRow("shelf", "shelf-track", books, renderBook, 5.5);
+  // Wider cards, so a little longer per item to keep both rows moving alike.
+  buildRow("talks", "talks-track", videos, renderTalk, 9);
 
   /* --- contact ----------------------------------------------------------- */
 
